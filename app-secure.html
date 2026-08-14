@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Two-Need, Two-Phase Post-Retirement Planner (Secure Edition)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#16233D; --navy-soft:#2B3B5C; --gold:#C9A05F; --gold-line:#C9A05F; --gold-soft:#F1E4CD;
+  --teal:#2F5F58; --teal-line:#6C9A92; --teal-soft:#DCEAE7; --cream:#F6F3E9; --ink:#16233D;
+  --ink-soft:#4B5568; --ink-faint:#8B92A0; --brick:#A23B31; --brick-soft:#F6DEDA;
+  --forest:#3C6B44; --forest-soft:#E1EEE1; --rule:#DCD5C4; --rule-strong:#C9C0A8;
+  --input-fill:#FFFDF6; --input-fill-hover:#FFF9EA; --input-border:#D8CBA8; --input-border-hover:#C9A05F;
+}
+*{box-sizing:border-box;}
+body{margin:0; font-family:'IBM Plex Sans',sans-serif; color:var(--ink); background:var(--cream); font-size:14px;}
+h1,h2{font-family:'Fraunces',serif; margin:0;}
+.wrap{max-width:1200px; margin:0 auto; padding:0 24px 60px;}
+header{background:var(--navy); color:#F6F3E9; padding:28px 24px; margin-bottom:24px;}
+header .inner{max-width:1200px; margin:0 auto;}
+.eyebrow{font-family:'IBM Plex Mono',monospace; letter-spacing:2px; text-transform:uppercase; font-size:11px; color:var(--gold);}
+header h1{font-size:26px; margin-top:6px;}
+header .sub{font-size:13px; color:#C8CEDC; margin-top:6px; max-width:640px; line-height:1.5;}
+.badge{display:inline-flex; align-items:center; gap:6px; background:rgba(108,154,146,0.18); border:1px solid var(--teal-line); color:#DCEAE7; padding:5px 12px; border-radius:20px; font-size:11.5px; font-family:'IBM Plex Mono',monospace; margin-top:14px;}
+
+.grid{display:grid; grid-template-columns:1fr 340px; gap:22px;}
+.section-title{display:flex; align-items:center; gap:10px; margin:30px 0 12px;}
+.section-title .num{width:28px; height:28px; border-radius:50%; border:1.5px solid var(--gold); display:flex; align-items:center; justify-content:center; font-family:'Fraunces',serif; font-size:13px; color:var(--navy); flex-shrink:0;}
+.section-title h2{font-size:19px;}
+.section-title .rule{flex:1; height:1px; background:var(--rule-strong);}
+
+.panel{background:#fff; border:1px solid var(--rule); border-radius:6px; overflow:hidden;}
+.panel-header{background:var(--gold-soft); padding:12px 18px; display:flex; justify-content:space-between; align-items:center;}
+.panel-header .eyebrow{color:#7A5726;}
+.panel-body{padding:18px;}
+.panel-note{font-size:12px; color:var(--ink-faint); margin-bottom:12px; line-height:1.5;}
+
+.field-row{display:grid; grid-template-columns:1fr 160px; gap:12px; align-items:center; padding:9px 0; border-bottom:1px dashed var(--rule);}
+.field-row:last-child{border-bottom:none;}
+.field-row label{font-size:13px; color:var(--ink-soft);}
+.field-row input,.field-row select{width:100%; text-align:right; border:1px solid var(--input-border); background:var(--input-fill); padding:6px 8px; font-size:14px; color:var(--ink); font-family:'IBM Plex Mono',monospace; border-radius:3px;}
+.field-row input:hover,.field-row select:hover{background:var(--input-fill-hover); border-color:var(--input-border-hover);}
+
+table.data-table{width:100%; border-collapse:collapse; font-size:12.5px;}
+table.data-table th{text-align:right; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; color:var(--ink-faint); padding:6px 8px; border-bottom:1px solid var(--rule-strong);}
+table.data-table th:first-child{text-align:left;}
+table.data-table td{padding:6px 8px; border-bottom:1px dashed var(--rule); text-align:right;}
+table.data-table td:first-child{text-align:left;}
+table.data-table input{width:100%; text-align:right; border:1px solid var(--input-border); background:var(--input-fill); padding:4px 6px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; border-radius:3px;}
+
+.stub-line{display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px dashed var(--rule); font-size:12.5px;}
+.stub-line .lbl{color:var(--ink-soft);}
+.stub-line .val{font-family:'IBM Plex Mono',monospace; font-weight:600; white-space:nowrap;}
+.stub-line.big{padding-top:12px; margin-top:4px; border-top:1.5px solid var(--ink); border-bottom:none;}
+.stub-line.big .val{font-size:16px;}
+.val.neg{color:var(--brick);} .val.pos{color:var(--forest);}
+
+.summary-rail{background:var(--navy); border-radius:6px; padding:0; height:fit-content; position:sticky; top:20px;}
+.summary-rail .panel-header{background:transparent; border-bottom:1px solid var(--navy-soft);}
+.summary-rail .panel-header h2,.summary-rail .panel-header .eyebrow{color:#F6F3E9;}
+.summary-rail .panel-body{padding-top:14px;}
+.summary-rail .stub-line{border-bottom-color:var(--navy-soft);}
+.summary-rail .stub-line .lbl{color:#B9C0CE;}
+.summary-rail .stub-line .val{color:#F6F3E9;}
+.summary-rail .stub-line.big{border-top-color:var(--gold);}
+
+.msg{font-size:12.5px; padding:8px 12px; border-radius:2px; margin-top:8px; font-family:'IBM Plex Mono',monospace;}
+.msg.neg{background:var(--brick-soft); color:var(--brick);}
+.msg.pos{background:var(--forest-soft); color:var(--forest);}
+.msg.warn{background:var(--gold-soft); color:#7A5726;}
+
+.stress-btn-row{display:flex; gap:10px; flex-wrap:wrap;}
+.stress-btn{background:var(--ink); color:#F6F3E9; border:none; padding:8px 16px; font-size:12.5px; border-radius:2px; cursor:pointer; font-family:'IBM Plex Mono',monospace; letter-spacing:0.4px;}
+.stress-btn:hover{background:#243452;}
+.stress-btn.active{background:var(--gold); color:#2B1D0A; box-shadow:inset 0 0 0 2px var(--gold-line);}
+.stress-btn:disabled{opacity:0.5; cursor:default;}
+
+.chart-wrap{background:#fff; border:1px solid var(--rule); border-radius:6px; padding:14px;}
+.legend{display:flex; gap:18px; font-size:12px; margin-bottom:8px;}
+.legend span{display:flex; align-items:center; gap:6px;}
+.legend i{width:14px; height:3px; display:inline-block;}
+
+.loading{display:none; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--gold-line); padding:8px 0;}
+.loading.active{display:block;}
+.add-row-btn{margin-top:6px; font-size:11px; background:none; border:1px dashed var(--rule-strong); color:var(--ink-soft); padding:4px 10px; border-radius:3px; cursor:pointer;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="inner">
+    <div class="eyebrow">Retirement Corpus Ledger — Secure Edition</div>
+    <h1>Two-Need, Two-Phase Post-Retirement Planner</h1>
+    <div class="sub">Same planner, different architecture: every calculation runs on the server. Your browser only ever sends inputs and displays results — the formulas themselves never leave the backend.</div>
+    <div class="badge">🔒 Calculations run server-side · API: <span id="apiUrlLabel">http://127.0.0.1:5001</span></div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+    <div>
+
+      <div class="section-title"><span class="num">1</span><h2>Plan Basics</h2><div class="rule"></div></div>
+      <div class="panel"><div class="panel-body">
+        <div class="field-row"><label>Plan start date</label><input type="date" id="planStartDate"></div>
+        <div class="field-row"><label>Review date (today)</label><input type="date" id="reviewDate"></div>
+        <div class="field-row"><label>Plan period — life span (years)</label><input type="number" id="lifeSpanYears" value="30"></div>
+        <div class="field-row"><label>Active phase (years since start)</label><input type="number" id="activePhaseYears" value="15"></div>
+        <div class="field-row"><label>Active phase expected return (%)</label><input type="number" id="activeReturn" value="11" step="0.1"></div>
+        <div class="field-row"><label>Restive phase expected return (%)</label><input type="number" id="restiveReturn" value="7" step="0.1"></div>
+        <div class="field-row"><label>Inflation (%)</label><input type="number" id="inflation" value="6" step="0.1"></div>
+        <div class="field-row"><label>Total corpus today (₹)</label><input type="number" id="totalCorpus" value="20000000"></div>
+      </div></div>
+
+      <div class="section-title"><span class="num">2</span><h2>Monthly Income Requirements</h2><div class="rule"></div></div>
+      <div class="panel"><div class="panel-body">
+        <div class="panel-note" style="font-weight:600; color:var(--ink);">PRIMARY NEEDS — basic minimum, non-negotiable</div>
+        <div class="field-row"><label>Primary (basic minimum) needs, ₹/month</label><input type="number" id="primaryNeeds" value="60000"></div>
+        <div class="field-row"><label>Non-investment income: job/business/rent, ₹/month</label><input type="number" id="nonInvestmentIncome" value="15000"></div>
+        <div class="panel-note" style="font-weight:600; color:var(--ink); margin-top:16px;">SECONDARY NEEDS — lifestyle &amp; discretionary</div>
+        <div class="field-row"><label>Secondary needs, ₹/month</label><input type="number" id="secondaryNeeds" value="50000"></div>
+        <div class="field-row"><label>Additional active-phase investment, ₹/month</label><input type="number" id="activeContribution" value="0"></div>
+      </div></div>
+
+      <div class="section-title"><span class="num">3</span><h2>Investment Planning</h2><div class="rule"></div></div>
+      <div class="panel"><div class="panel-body">
+        <div class="panel-note" style="font-weight:600; color:var(--ink);">PRIMARY NEEDS CORPUS (low-risk)</div>
+        <table class="data-table" id="primaryTable">
+          <thead><tr><th>Instrument</th><th>Amount (₹)</th><th>Return (%)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="panel-note" style="font-weight:600; color:var(--ink); margin-top:18px;">SECONDARY NEEDS CORPUS (growth)</div>
+        <table class="data-table" id="secondaryTable">
+          <thead><tr><th>Instrument</th><th>Amount (₹)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div></div>
+
+      <div class="section-title"><span class="num">4</span><h2>Tax Impact (Illustrative)</h2><div class="rule"></div></div>
+      <div class="panel"><div class="panel-body">
+        <div class="field-row"><label>Primary withdrawal tax rate (%)</label><input type="number" id="primaryTaxRate" value="0"></div>
+        <div class="field-row"><label>Secondary withdrawal tax rate (%)</label><input type="number" id="secondaryTaxRate" value="12.5"></div>
+        <div class="field-row"><label>Equity LTCG exemption (₹/yr)</label><input type="number" id="equityExemption" value="125000"></div>
+        <div id="taxOutputs" style="margin-top:14px;"></div>
+      </div></div>
+
+      <div class="section-title"><span class="num">5</span><h2>Illustration</h2><div class="rule"></div></div>
+      <div class="chart-wrap">
+        <div class="legend">
+          <span><i style="background:var(--gold);"></i> Primary corpus — closing amount</span>
+          <span><i style="background:var(--teal);"></i> Secondary corpus — closing amount</span>
+        </div>
+        <svg id="illusChart" viewBox="0 0 900 260" style="width:100%; height:auto; display:block;"></svg>
+      </div>
+
+      <div class="section-title"><span class="num">6</span><h2>Stress Test</h2><div class="rule"></div></div>
+      <div class="panel"><div class="panel-body">
+        <div class="panel-note">Each button asks the server to recompute your plan under a tougher assumption and shows the effect — proving the same what-if pattern works over the network. Your real inputs are not changed.</div>
+        <div class="stress-btn-row">
+          <button class="stress-btn" id="stressReturnsDown" type="button">Returns −2%</button>
+          <button class="stress-btn" id="stressInflationUp" type="button">Inflation +2%</button>
+          <button class="stress-btn" id="stressLiveLonger" type="button">Live 5 years longer</button>
+        </div>
+        <div id="stressResult" class="msg" style="display:none; margin-top:14px;"></div>
+      </div></div>
+
+      <div class="section-title"><span class="num">7</span><h2>Goal Seek</h2><div class="rule"></div></div>
+      <div class="panel"><div class="panel-body">
+        <div class="panel-note">Tell the server what ending balance you want, pick what to solve for, and the entire binary search runs server-side — one request, not forty.</div>
+        <div class="field-row"><label>Target ending balance (₹)</label><input type="number" id="goalSeekTarget" value="0" step="100000"></div>
+        <div class="field-row"><label>Solve for</label>
+          <select id="goalSeekVariable" style="text-align:left;">
+            <option value="activeContribution">Required active-phase contribution</option>
+            <option value="totalCorpus">Required total corpus today</option>
+            <option value="secondaryNeeds">Max sustainable secondary spending</option>
+            <option value="primaryNeeds">Max sustainable primary spending</option>
+          </select>
+        </div>
+        <button class="stress-btn" id="goalSeekBtn" type="button" style="margin-top:10px;">Solve</button>
+        <div id="goalSeekResult" class="msg" style="display:none; margin-top:14px;"></div>
+        <button class="stress-btn" id="goalSeekApplyBtn" type="button" style="display:none; margin-top:10px; background:var(--teal);">Apply this value to my plan</button>
+      </div></div>
+
+    </div>
+
+    <div class="summary-rail">
+      <div class="panel-header"><span class="eyebrow">Passbook Summary</span><h2 style="font-size:15px;">At a glance</h2></div>
+      <div class="panel-body">
+        <div class="loading" id="loadingIndicator">⟳ Calculating on server…</div>
+<div id="loading-spinner" style="display:none; border:4px solid rgba(0,0,0,0.1); width:30px; height:30px; border-radius:50%; border-left-color:#2b6cb0; animation:spin 1s linear infinite; margin:10px auto;"></div>
+<style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+        <div id="depletionWarning" class="msg neg" style="display:none;"></div>
+        <div class="stub-line"><span class="lbl">Total corpus today</span><span class="val" id="sTotalCorpus">—</span></div>
+        <div class="stub-line"><span class="lbl">Net corpus for self</span><span class="val" id="sNetCorpus">—</span></div>
+        <div class="stub-line"><span class="lbl">Primary corpus invested</span><span class="val" id="sPrimaryInvested">—</span></div>
+        <div class="stub-line"><span class="lbl">Secondary corpus invested</span><span class="val" id="sSecondaryInvested">—</span></div>
+        <div class="stub-line"><span class="lbl">Withdrawal rate</span><span class="val" id="sWithdrawalRate">—</span></div>
+        <div class="stub-line"><span class="lbl">Monthly shortfall / surplus</span><span class="val" id="sMonthlyNet">—</span></div>
+        <div class="stub-line big"><span class="lbl">Expected balance at plan end</span><span class="val" id="sEndBalance">—</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = 'http://127.0.0.1:5001';
+
+/* ============================================================
+   Minimal data model — mirrors the original app's primary/secondary tables
+   ============================================================ */
+let primaryTable = [
+  { name: "Senior Citizen Savings Scheme", amount: 2500000, ret: 8.2 },
+  { name: "RBI Floating Rate Bond", amount: 1500000, ret: 7.5 },
+  { name: "Post Office MIS", amount: 1000000, ret: 7.4 },
+];
+let secondaryTable = [
+  { name: "Large cap equity fund (SOP)", amount: 3000000 },
+  { name: "Flexicap equity fund (SOP)", amount: 2000000 },
+];
+let purposes = []; // no lumpsum goals in this pass — see punch-list
+
+let lastResult = null;
+
+function num(id){ const el = document.getElementById(id); const v = parseFloat(el.value); return isNaN(v) ? 0 : v; }
+function fmtINR(n){
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  const neg = n < 0;
+  const v = Math.round(Math.abs(n));
+  const s = '₹' + v.toLocaleString('en-IN');
+  return neg ? '−' + s : s;
+}
+function fmtPct(n){ if (n===null||n===undefined||isNaN(n)) return '—'; return (n*100).toFixed(2)+'%'; }
+
+function getPlanData(){
+  return {
+    planStartDate: document.getElementById('planStartDate').value,
+    reviewDate: document.getElementById('reviewDate').value,
+    lifeSpanYears: num('lifeSpanYears'),
+    activePhaseYears: num('activePhaseYears'),
+    activeReturn: num('activeReturn'),
+    restiveReturn: num('restiveReturn'),
+    inflation: num('inflation'),
+    totalCorpus: num('totalCorpus'),
+    primaryNeeds: num('primaryNeeds'),
+    nonInvestmentIncome: num('nonInvestmentIncome'),
+    secondaryNeeds: num('secondaryNeeds'),
+    activeContribution: num('activeContribution'),
+    primaryTaxRate: num('primaryTaxRate'),
+    secondaryTaxRate: num('secondaryTaxRate'),
+    equityExemption: num('equityExemption'),
+    purposes: purposes,
+    primaryTable: primaryTable,
+    secondaryTable: secondaryTable,
+  };
+}
+
+/* ============================================================
+   THE ONLY NETWORK CALL THAT MATTERS: send inputs, get results.
+   No formulas exist in this file at all.
+   ============================================================ */
+async function callAPI(plan, sequenceShock){
+document.getElementById('loading-spinner').style.display = 'block';
+  const resp = await fetch(`${API_BASE}/api/calculate`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ plan, sequenceShock: sequenceShock || null })
+  });
+  const data = await resp.json();
+document.getElementById('loading-spinner').style.display = 'none';
+
+  if (!data.ok) throw new Error(data.error || 'Server error');
+  return data.result;
+
+
+}
+
+async function recalcAll(){
+  document.getElementById('loadingIndicator').classList.add('active');
+  try {
+    const plan = getPlanData();
+    const r = await callAPI(plan);
+    lastResult = r;
+    renderResults(r);
+  } catch(e){
+    console.error('Calculation failed:', e);
+    document.getElementById('sEndBalance').textContent = 'Error — is the API running?';
+  } finally {
+    document.getElementById('loadingIndicator').classList.remove('active');
+  }
+}
+
+function renderResults(r){
+  document.getElementById('sTotalCorpus').textContent = fmtINR(num('totalCorpus'));
+  document.getElementById('sNetCorpus').textContent = fmtINR(r.netCorpusForSelf);
+  document.getElementById('sPrimaryInvested').textContent = fmtINR(r.primaryAmountTotal);
+  document.getElementById('sSecondaryInvested').textContent = fmtINR(r.secondaryInvestedTotal);
+  document.getElementById('sWithdrawalRate').textContent = fmtPct(r.withdrawalRate);
+  const netEl = document.getElementById('sMonthlyNet');
+  netEl.textContent = fmtINR(r.monthlyNet);
+  netEl.className = 'val ' + (r.monthlyNet < 0 ? 'neg' : 'pos');
+  const endEl = document.getElementById('sEndBalance');
+  endEl.textContent = fmtINR(r.corpusAfterRestive);
+  endEl.className = 'val ' + (r.corpusAfterRestive < 0 ? 'neg' : 'pos');
+
+  const depEl = document.getElementById('depletionWarning');
+  if (r.depletionYear !== null && r.depletionYear !== undefined){
+    depEl.style.display = 'block';
+    depEl.textContent = `⚠ Secondary corpus is projected to deplete in Year ${r.depletionYear} of the plan.`;
+  } else {
+    depEl.style.display = 'none';
+  }
+
+  document.getElementById('taxOutputs').innerHTML = `
+    <div class="stub-line"><span class="lbl">Primary — pre-tax / tax / post-tax</span><span class="val">${fmtINR(r.primaryAnnualWithdrawal)} / ${fmtINR(r.primaryTax)} / ${fmtINR(r.primaryPostTax)}</span></div>
+    <div class="stub-line"><span class="lbl">Secondary — pre-tax / tax / post-tax</span><span class="val">${fmtINR(r.secondaryAnnualWithdrawal)} / ${fmtINR(r.secondaryTax)} / ${fmtINR(r.secondaryPostTax)}</span></div>
+    <div class="stub-line big"><span class="lbl">Combined post-tax monthly</span><span class="val">${fmtINR(r.combinedPostTaxMonthly)}</span></div>
+  `;
+
+  renderChart(r.illus);
+}
+
+function renderChart(illus){
+  const svg = document.getElementById('illusChart');
+  const W=900,H=260,padL=70,padR=20,padT=16,padB=30, plotW=W-padL-padR, plotH=H-padT-padB;
+  const allVals = [];
+  illus.forEach(r => { allVals.push(r.priClosing, r.secClosing); });
+  const maxV = Math.max(...allVals, 0), minV = Math.min(...allVals, 0);
+  const range = (maxV - minV) || 1;
+  const xFor = y => padL + (y/100)*plotW;
+  const yFor = v => padT + plotH - ((v-minV)/range)*plotH;
+  const pathFor = key => illus.map((r,i) => `${i===0?'M':'L'}${xFor(r.y).toFixed(1)},${yFor(r[key]).toFixed(1)}`).join(' ');
+  const zeroY = yFor(0);
+  svg.innerHTML = `
+    <line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W-padR}" y2="${zeroY.toFixed(1)}" stroke="#16233D" stroke-width="1"/>
+    <path d="${pathFor('priClosing')}" fill="none" stroke="#A8793A" stroke-width="2.5"/>
+    <path d="${pathFor('secClosing')}" fill="none" stroke="#2F5F58" stroke-width="2.5"/>
+  `;
+}
+
+/* ============================================================
+   Editable tables
+   ============================================================ */
+function renderTables(){
+  const pBody = document.querySelector('#primaryTable tbody');
+  pBody.innerHTML = primaryTable.map((row,i) => `
+    <tr>
+      <td><input data-t="primary" data-i="${i}" data-f="name" value="${row.name}"></td>
+      <td><input data-t="primary" data-i="${i}" data-f="amount" type="number" value="${row.amount}"></td>
+      <td><input data-t="primary" data-i="${i}" data-f="ret" type="number" step="0.1" value="${row.ret}"></td>
+    </tr>`).join('');
+
+  const sBody = document.querySelector('#secondaryTable tbody');
+  sBody.innerHTML = secondaryTable.map((row,i) => `
+    <tr>
+      <td><input data-t="secondary" data-i="${i}" data-f="name" value="${row.name}"></td>
+      <td><input data-t="secondary" data-i="${i}" data-f="amount" type="number" value="${row.amount}"></td>
+    </tr>`).join('');
+
+  document.querySelectorAll('#primaryTable input, #secondaryTable input').forEach(el => {
+    el.addEventListener('input', (e) => {
+      const {t,i,f} = e.target.dataset;
+      const table = t === 'primary' ? primaryTable : secondaryTable;
+      table[i][f] = (f === 'name') ? e.target.value : parseFloat(e.target.value) || 0;
+      debouncedRecalc();
+    });
+  });
+}
+
+/* ============================================================
+   Stress Test — same snapshot/mutate/recalc/restore PATTERN as the
+   local version, just with the network call standing in for the
+   local recalcAll(). Proves the what-if architecture generalizes.
+   ============================================================ */
+async function runStressTest(type){
+  const plan = getPlanData();
+  const baseline = await callAPI(plan);
+
+  const stressed = JSON.parse(JSON.stringify(plan));
+  let label = '';
+  if (type === 'returns_down'){
+    stressed.activeReturn -= 2; stressed.restiveReturn -= 2;
+    stressed.primaryTable = stressed.primaryTable.map(r => ({...r, ret: r.ret - 2}));
+    label = 'returns ran 2 percentage points lower';
+  } else if (type === 'inflation_up'){
+    stressed.inflation += 2;
+    label = 'inflation ran 2 percentage points higher';
+  } else if (type === 'live_longer'){
+    stressed.lifeSpanYears += 5;
+    label = 'you lived 5 years longer than planned';
+  }
+  const stressedResult = await callAPI(stressed);
+
+  const delta = stressedResult.corpusAfterRestive - baseline.corpusAfterRestive;
+  const resultEl = document.getElementById('stressResult');
+  resultEl.style.display = 'block';
+  resultEl.className = 'msg ' + (stressedResult.corpusAfterRestive < 0 ? 'neg' : 'pos');
+  resultEl.textContent = `If ${label}, your ending balance would be ${fmtINR(stressedResult.corpusAfterRestive)} instead of ${fmtINR(baseline.corpusAfterRestive)} — a change of ${delta>=0?'+':''}${fmtINR(delta)}. (Computed via two live calls to the server — your real inputs were never changed.)`;
+}
+
+/* ============================================================
+   Goal Seek — the search runs entirely on the server (one request);
+   the browser just sends the target and displays the answer.
+   ============================================================ */
+let lastGoalSeekResult = null;
+
+async function runGoalSeek(){
+  const target = parseFloat(document.getElementById('goalSeekTarget').value) || 0;
+  const variable = document.getElementById('goalSeekVariable').value;
+  const resultEl = document.getElementById('goalSeekResult');
+  const applyBtn = document.getElementById('goalSeekApplyBtn');
+  resultEl.style.display = 'block';
+  resultEl.textContent = 'Solving on server…';
+  resultEl.className = 'msg';
+  applyBtn.style.display = 'none';
+  lastGoalSeekResult = null;
+
+  try {
+document.getElementById('loading-spinner').style.display = 'block';
+
+    const resp = await fetch(`${API_BASE}/api/goal-seek`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ plan: getPlanData(), variable, target })
+    });
+    const data = await resp.json();
+document.getElementById('loading-spinner').style.display = 'none';
+
+    if (!data.ok) throw new Error(data.error);
+    const r = data.result;
+    resultEl.className = 'msg ' + r.cls;
+    resultEl.textContent = r.message;
+    if (r.solvedValue !== null && r.solvedValue !== undefined){
+      lastGoalSeekResult = { variable, value: r.solvedValue };
+      applyBtn.style.display = 'inline-block';
+    }
+  } catch(e){
+    resultEl.className = 'msg neg';
+    resultEl.textContent = 'Could not reach the server: ' + e.message;
+  }
+}
+
+function applyGoalSeekResult(){
+  if (!lastGoalSeekResult) return;
+  const { variable, value } = lastGoalSeekResult;
+  document.getElementById(variable).value = value;
+  document.getElementById('goalSeekApplyBtn').style.display = 'none';
+  document.getElementById('goalSeekResult').textContent += ' ✓ Applied to your plan.';
+  lastGoalSeekResult = null;
+  recalcAll();
+}
+
+/* ============================================================
+   Init
+   ============================================================ */
+function setDefaultDates(){
+  const today = new Date();
+  document.getElementById('reviewDate').value = today.toISOString().slice(0,10);
+  document.getElementById('planStartDate').value = today.toISOString().slice(0,10);
+}
+
+let debounceTimer = null;
+function debouncedRecalc(){
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(recalcAll, 400); // debounced: this is a network call now, not a local function
+}
+
+function init(){
+  setDefaultDates();
+  renderTables();
+  document.body.addEventListener('input', debouncedRecalc);
+  document.getElementById('stressReturnsDown').addEventListener('click', () => runStressTest('returns_down'));
+  document.getElementById('stressInflationUp').addEventListener('click', () => runStressTest('inflation_up'));
+  document.getElementById('stressLiveLonger').addEventListener('click', () => runStressTest('live_longer'));
+  document.getElementById('goalSeekBtn').addEventListener('click', runGoalSeek);
+  document.getElementById('goalSeekApplyBtn').addEventListener('click', applyGoalSeekResult);
+  recalcAll();
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
