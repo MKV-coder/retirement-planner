@@ -25,7 +25,7 @@ app = Flask(__name__)
 # your actual frontend's domain instead of '*'.
 @app.after_request
 def add_cors_headers(resp):
-    resp.headers['Access-Control-Allow-Origin'] = '*'
+    resp.headers['Access-Control-Allow-Origin'] = 'https://retirement-planner-690q.onrender.com'
     resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
     resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
     return resp
