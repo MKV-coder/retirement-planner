@@ -16,6 +16,7 @@ test_parity.py.
 """
 
 import math
+import copy
 from datetime import datetime, timedelta
 
 YEARS = 100  # length of the year-by-year illustration, matches the JS constant
@@ -404,3 +405,56 @@ def goal_seek(plan_data, variable, target):
             'message': f"Keeping your {label} at or below about {fmt_inr(solved)}{suffix} should let you reach about {fmt_inr(solved_result)} at plan end (target: {fmt_inr(target)}).",
             'cls': 'pos', 'solvedValue': solved
         }
+
+
+# ============================================================
+# SENSITIVITY RANKING — a faithful port of the original frontend's
+# SENSITIVITY_LEVERS + runSensitivityAnalysis(). Each lever is tested in
+# isolation against the true baseline (never stacked), same as before —
+# just running compute_plan() 7 times server-side (1 baseline + 6 levers)
+# in a single request instead of the browser driving 7 separate calls.
+# ============================================================
+
+SENSITIVITY_LEVERS = [
+    {'key': 'returns_down', 'label': 'Returns 2% lower'},
+    {'key': 'inflation_up', 'label': 'Inflation 2% higher'},
+    {'key': 'live_longer', 'label': 'Living 5 years longer'},
+    {'key': 'contribution_up', 'label': 'Contributing ₹20,000/month more'},
+    {'key': 'secondary_down', 'label': 'Secondary spending 10% lower'},
+    {'key': 'primary_down', 'label': 'Primary spending 10% lower'},
+]
+
+
+def _apply_lever(plan_data, key):
+    trial = copy.deepcopy(plan_data)
+    if key == 'returns_down':
+        trial['activeReturn'] = trial.get('activeReturn', 0) - 2
+        trial['restiveReturn'] = trial.get('restiveReturn', 0) - 2
+        trial['primaryTable'] = [dict(r, ret=r['ret'] - 2) for r in trial.get('primaryTable', [])]
+    elif key == 'inflation_up':
+        trial['inflation'] = trial.get('inflation', 0) + 2
+    elif key == 'live_longer':
+        trial['lifeSpanYears'] = trial.get('lifeSpanYears', 0) + 5
+    elif key == 'contribution_up':
+        trial['activeContribution'] = trial.get('activeContribution', 0) + 20000
+    elif key == 'secondary_down':
+        trial['secondaryNeeds'] = round(trial.get('secondaryNeeds', 0) * 0.9)
+    elif key == 'primary_down':
+        trial['primaryNeeds'] = round(trial.get('primaryNeeds', 0) * 0.9)
+    return trial
+
+
+def sensitivity_ranking(plan_data):
+    baseline_end = compute_plan(plan_data)['corpusAfterRestive']
+    results = []
+    for lever in SENSITIVITY_LEVERS:
+        trial = _apply_lever(plan_data, lever['key'])
+        stressed_end = compute_plan(trial)['corpusAfterRestive']
+        results.append({
+            'key': lever['key'],
+            'label': lever['label'],
+            'delta': stressed_end - baseline_end,
+            'stressedEnd': stressed_end,
+        })
+    results.sort(key=lambda r: abs(r['delta']), reverse=True)
+    return {'baselineEnd': baseline_end, 'results': results}

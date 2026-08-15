@@ -93,7 +93,7 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
     <div class="eyebrow">Retirement Corpus Ledger — Secure Edition</div>
     <h1>Two-Need, Two-Phase Post-Retirement Planner</h1>
     <div class="sub">Same planner, different architecture: every calculation runs on the server. Your browser only ever sends inputs and displays results — the formulas themselves never leave the backend.</div>
-    <div class="badge">🔒 Calculations run server-side · API: <span id="apiUrlLabel">https://retirement-planner-690q.onrender.com</span></div>
+    <div class="badge">🔒 Calculations run server-side · API: <span id="apiUrlLabel">http://127.0.0.1:5001</span></div>
   </div>
 </header>
 
@@ -154,7 +154,16 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
         <svg id="illusChart" viewBox="0 0 900 260" style="width:100%; height:auto; display:block;"></svg>
       </div>
 
-      <div class="section-title"><span class="num">6</span><h2>Stress Test</h2><div class="rule"></div></div>
+      <div class="section-title"><span class="num">6</span><h2>Sensitivity Ranking</h2><div class="rule"></div></div>
+      <div class="panel"><div class="panel-body">
+        <div class="panel-note">Tests 6 levers in isolation against your current plan — 7 server calculations in one request — and ranks them by impact. Click any bar to explore that lever further.</div>
+        <button class="stress-btn" id="runSensitivityBtn" type="button">Run Sensitivity Analysis</button>
+        <div id="sensitivityChartWrap" style="margin-top:16px; display:none;">
+          <svg id="sensitivityChart" viewBox="0 0 900 320" style="width:100%; height:auto; display:block;"></svg>
+        </div>
+      </div></div>
+
+      <div class="section-title"><span class="num">7</span><h2>Stress Test</h2><div class="rule"></div></div>
       <div class="panel"><div class="panel-body">
         <div class="panel-note">Each button asks the server to recompute your plan under a tougher assumption and shows the effect — proving the same what-if pattern works over the network. Your real inputs are not changed.</div>
         <div class="stress-btn-row">
@@ -165,7 +174,7 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
         <div id="stressResult" class="msg" style="display:none; margin-top:14px;"></div>
       </div></div>
 
-      <div class="section-title"><span class="num">7</span><h2>Goal Seek</h2><div class="rule"></div></div>
+      <div class="section-title"><span class="num">8</span><h2>Goal Seek</h2><div class="rule"></div></div>
       <div class="panel"><div class="panel-body">
         <div class="panel-note">Tell the server what ending balance you want, pick what to solve for, and the entire binary search runs server-side — one request, not forty.</div>
         <div class="field-row"><label>Target ending balance (₹)</label><input type="number" id="goalSeekTarget" value="0" step="100000"></div>
@@ -188,8 +197,6 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
       <div class="panel-header"><span class="eyebrow">Passbook Summary</span><h2 style="font-size:15px;">At a glance</h2></div>
       <div class="panel-body">
         <div class="loading" id="loadingIndicator">⟳ Calculating on server…</div>
-<div id="loading-spinner" style="display:none; border:4px solid rgba(0,0,0,0.1); width:30px; height:30px; border-radius:50%; border-left-color:#2b6cb0; animation:spin 1s linear infinite; margin:10px auto;"></div>
-<style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
         <div id="depletionWarning" class="msg neg" style="display:none;"></div>
         <div class="stub-line"><span class="lbl">Total corpus today</span><span class="val" id="sTotalCorpus">—</span></div>
         <div class="stub-line"><span class="lbl">Net corpus for self</span><span class="val" id="sNetCorpus">—</span></div>
@@ -204,7 +211,7 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
 </div>
 
 <script>
-const API_BASE = 'https://retirement-planner-690q.onrender.com';
+const API_BASE = 'http://127.0.0.1:5001';
 
 /* ============================================================
    Minimal data model — mirrors the original app's primary/secondary tables
@@ -260,19 +267,14 @@ function getPlanData(){
    No formulas exist in this file at all.
    ============================================================ */
 async function callAPI(plan, sequenceShock){
-document.getElementById('loading-spinner').style.display = 'block';
   const resp = await fetch(`${API_BASE}/api/calculate`, {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ plan, sequenceShock: sequenceShock || null })
   });
   const data = await resp.json();
-document.getElementById('loading-spinner').style.display = 'none';
-
   if (!data.ok) throw new Error(data.error || 'Server error');
   return data.result;
-
-
 }
 
 async function recalcAll(){
@@ -372,6 +374,94 @@ function renderTables(){
    local version, just with the network call standing in for the
    local recalcAll(). Proves the what-if architecture generalizes.
    ============================================================ */
+/* ============================================================
+   Sensitivity Ranking — one server call runs all 6 levers and returns
+   them pre-sorted. Bars are clickable and drill into Stress Test / Goal
+   Seek, matching the original app's behavior.
+   ============================================================ */
+const SENSITIVITY_DRILLDOWN = {
+  returns_down: { type: 'stress', stressType: 'returns_down' },
+  inflation_up: { type: 'stress', stressType: 'inflation_up' },
+  live_longer: { type: 'stress', stressType: 'live_longer' },
+  contribution_up: { type: 'goalseek', variable: 'activeContribution' },
+  secondary_down: { type: 'goalseek', variable: 'secondaryNeeds' },
+  primary_down: { type: 'goalseek', variable: 'primaryNeeds' },
+};
+
+async function runSensitivityAnalysis(){
+  const btn = document.getElementById('runSensitivityBtn');
+  btn.disabled = true; btn.textContent = 'Calculating on server…';
+  try {
+    const resp = await fetch(`${API_BASE}/api/sensitivity`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ plan: getPlanData() })
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error);
+    renderSensitivityChart(data.result.results);
+  } catch(e){
+    alert('Could not reach the server: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Run Sensitivity Analysis';
+  }
+}
+
+function renderSensitivityChart(results){
+  const wrap = document.getElementById('sensitivityChartWrap');
+  const svg = document.getElementById('sensitivityChart');
+  wrap.style.display = 'block';
+
+  const rowH = 46, topPad = 14, leftPad = 230, rightPad = 20;
+  const chartW = 900, plotW = chartW - leftPad - rightPad;
+  const H = topPad*2 + rowH*results.length;
+  const maxAbs = Math.max(...results.map(r => Math.abs(r.delta)), 1);
+  const zeroX = leftPad + plotW/2;
+  const scale = (plotW/2 - 10) / maxAbs;
+
+  const rows = results.map((r, i) => {
+    const cy = topPad + rowH*i + rowH/2;
+    const barW = Math.abs(r.delta) * scale;
+    const barX = r.delta >= 0 ? zeroX : zeroX - barW;
+    const color = r.delta >= 0 ? '#3C6B44' : '#A23B31';
+    const valueStr = `${r.delta>=0?'+':''}${fmtINR(r.delta)}`;
+    let valueX, valueAnchor, valueFill;
+    if (barW >= 95){
+      valueX = r.delta >= 0 ? barX + barW - 8 : barX + 8;
+      valueAnchor = r.delta >= 0 ? 'end' : 'start';
+      valueFill = '#F6F3E9';
+    } else {
+      valueX = r.delta >= 0 ? barX + barW + 8 : barX - 8;
+      valueAnchor = r.delta >= 0 ? 'start' : 'end';
+      valueFill = color;
+    }
+    return `
+      <g class="sens-row" style="cursor:pointer;" onclick="drillDownFromSensitivity('${r.key}')">
+        <rect x="0" y="${(cy-rowH/2).toFixed(1)}" width="${chartW}" height="${rowH}" fill="transparent"/>
+        <text x="${leftPad-12}" y="${(cy+4).toFixed(1)}" text-anchor="end" font-size="12" font-family="IBM Plex Sans, sans-serif" fill="#16233D">${r.label}</text>
+        <rect x="${barX.toFixed(1)}" y="${(cy-11).toFixed(1)}" width="${Math.max(barW,1).toFixed(1)}" height="22" fill="${color}" opacity="0.85" rx="2"/>
+        <text x="${valueX.toFixed(1)}" y="${(cy+4).toFixed(1)}" text-anchor="${valueAnchor}" font-size="11.5" font-family="IBM Plex Mono, monospace" fill="${valueFill}">${valueStr}</text>
+      </g>
+    `;
+  }).join('');
+
+  svg.setAttribute('viewBox', `0 0 ${chartW} ${H}`);
+  svg.innerHTML = `<line x1="${zeroX.toFixed(1)}" y1="0" x2="${zeroX.toFixed(1)}" y2="${H}" stroke="#16233D" stroke-width="1"/>${rows}`;
+}
+
+function drillDownFromSensitivity(key){
+  const dest = SENSITIVITY_DRILLDOWN[key];
+  if (!dest) return;
+  if (dest.type === 'stress'){
+    runStressTest(dest.stressType);
+    document.getElementById('stressResult').scrollIntoView({ behavior:'smooth', block:'center' });
+  } else {
+    document.getElementById('goalSeekVariable').value = dest.variable;
+    document.getElementById('goalSeekTarget').value = 0;
+    runGoalSeek();
+    document.getElementById('goalSeekResult').scrollIntoView({ behavior:'smooth', block:'center' });
+  }
+}
+
 async function runStressTest(type){
   const plan = getPlanData();
   const baseline = await callAPI(plan);
@@ -416,16 +506,12 @@ async function runGoalSeek(){
   lastGoalSeekResult = null;
 
   try {
-document.getElementById('loading-spinner').style.display = 'block';
-
     const resp = await fetch(`${API_BASE}/api/goal-seek`, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ plan: getPlanData(), variable, target })
     });
     const data = await resp.json();
-document.getElementById('loading-spinner').style.display = 'none';
-
     if (!data.ok) throw new Error(data.error);
     const r = data.result;
     resultEl.className = 'msg ' + r.cls;
@@ -472,6 +558,7 @@ function init(){
   document.getElementById('stressReturnsDown').addEventListener('click', () => runStressTest('returns_down'));
   document.getElementById('stressInflationUp').addEventListener('click', () => runStressTest('inflation_up'));
   document.getElementById('stressLiveLonger').addEventListener('click', () => runStressTest('live_longer'));
+  document.getElementById('runSensitivityBtn').addEventListener('click', runSensitivityAnalysis);
   document.getElementById('goalSeekBtn').addEventListener('click', runGoalSeek);
   document.getElementById('goalSeekApplyBtn').addEventListener('click', applyGoalSeekResult);
   recalcAll();

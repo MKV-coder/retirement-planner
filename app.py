@@ -16,7 +16,7 @@ exposed to the internet as-is.
 """
 
 from flask import Flask, request, jsonify
-from engine import compute_plan, goal_seek
+from engine import compute_plan, goal_seek, sensitivity_ranking
 
 app = Flask(__name__)
 
@@ -25,7 +25,7 @@ app = Flask(__name__)
 # your actual frontend's domain instead of '*'.
 @app.after_request
 def add_cors_headers(resp):
-    resp.headers['Access-Control-Allow-Origin'] = 'https://retirementplanner-api.netlify.app'
+resp.headers['Access-Control-Allow-Origin'] = 'https://retirementplanner-api.netlify.app'
     resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
     resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
     return resp
@@ -57,6 +57,19 @@ def goal_seek_route():
         variable = body.get('variable')
         target = float(body.get('target', 0))
         result = goal_seek(plan_data, variable, target)
+        return jsonify({'ok': True, 'result': result})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
+
+
+@app.route('/api/sensitivity', methods=['POST', 'OPTIONS'])
+def sensitivity_route():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        body = request.get_json(force=True)
+        plan_data = body.get('plan')
+        result = sensitivity_ranking(plan_data)
         return jsonify({'ok': True, 'result': result})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 400
