@@ -4,7 +4,7 @@ This is a working proof of a real architecture change: the calculation
 logic now lives entirely on a Python backend. The HTML/JS the browser
 receives contains **zero formulas** — only input collection, display
 formatting, and a `fetch()` call. You can verify this yourself:
-`grep -n "Math.pow\|excelPV\|growingAnnuity" app-secure.html` returns nothing.
+`grep -n "Math.pow\|excelPV\|growingAnnuity" index.html` returns nothing.
 
 ## Files
 
@@ -12,7 +12,7 @@ formatting, and a `fetch()` call. You can verify this yourself:
 |---|---|
 | `engine.py` | The calculation engine — a line-by-line port of the original JS `recalcAll()`, plus a server-side Goal Seek binary search. Pure functions, no web framework code. |
 | `app.py` | Flask API server. Two endpoints: `POST /api/calculate` and `POST /api/goal-seek`. |
-| `app-secure.html` | The new frontend. Sends inputs, displays results. No logic. |
+| `index.html` | The new frontend. Sends inputs, displays results. No logic. |
 | `requirements.txt` | Python dependencies for deployment. |
 | `DEPLOYMENT.md` | How to actually put this on the internet — Render/Railway/Fly.io, CORS lockdown, HTTPS. |
 
@@ -24,7 +24,7 @@ python app.py
 # serves on http://127.0.0.1:5001
 ```
 
-Then open `app-secure.html` in a browser (it's a static file, no build
+Then open `index.html` in a browser (it's a static file, no build
 step). It's pre-configured to call `http://127.0.0.1:5001`.
 
 ## Numerical parity — how it was verified
@@ -101,3 +101,33 @@ drill into Stress Test or Goal Seek, matching the original app's behavior.
 
 **Still not ported:** lumpsum goals, Sequence-of-Returns Risk, Scenario
 Comparison, Undo, Save/Load Plan, PDF/Excel export.
+
+## Update: Sequence-of-Returns Risk ported (server-side)
+
+Three scenarios (baseline, bad-years-at-the-start, same-shortfall-spread-
+evenly) computed server-side in one request (`POST /api/sequence-risk`).
+
+**A real precision bug was caught and fixed during parity testing:** the
+original JS rounds the "spread evenly" adjusted return to 3 decimal places
+before using it (an artifact of writing through a DOM input's `.toFixed(3)`).
+My first port kept full floating-point precision instead, which produced
+answers off by a few thousand rupees after compounding over 100 years —
+small, but not the exact parity this project has held to throughout. Fixed
+by replicating that same rounding step; re-verified across 5 scenarios
+(including the "reversal" edge case and a 1-year grammar edge case) with
+exact character-for-character message matches.
+
+**Still not ported:** lumpsum goals, Scenario Comparison, Undo, Save/Load
+Plan, PDF/Excel export.
+
+## Note on local testing files
+
+`index.local-test.html` and `app.local-test.py` are development-only
+copies with permissive CORS / localhost API pointed at each other — used
+to verify changes locally before they're ported into the real `index.html`
+/ `app.py`. **Do not deploy the `.local-test` files** — they're deliberately
+insecure (open CORS) and meant only for testing on your own machine
+alongside a local `python app.py` run of the *real* backend copy... actually,
+run `python app.local-test.py` instead when testing locally, since it's
+pre-configured to talk to `index.local-test.html` without needing to edit
+either file first.

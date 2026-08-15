@@ -458,3 +458,58 @@ def sensitivity_ranking(plan_data):
         })
     results.sort(key=lambda r: abs(r['delta']), reverse=True)
     return {'baselineEnd': baseline_end, 'results': results}
+
+
+# ============================================================
+# SEQUENCE-OF-RETURNS RISK — a faithful port of runSequenceRiskTest().
+# Reuses the same sequence_shock parameter compute_plan() already
+# supports. Three server-side calculations (baseline, front-loaded,
+# spread-evenly) in one request.
+# ============================================================
+
+def sequence_risk_test(plan_data, shock_years, shock_delta_pct):
+    shock_years = max(1, int(shock_years) if shock_years is not None else 5)
+    shock_delta_pct = max(0, float(shock_delta_pct) if shock_delta_pct is not None else 4)
+
+    baseline = compute_plan(plan_data)
+    baseline_end = baseline['corpusAfterRestive']
+    plan_years = max(baseline['yearsLeftPlanEnd'], 1)
+
+    # Scenario A: bad years concentrated right at the start
+    front_loaded = compute_plan(plan_data, sequence_shock={'years': shock_years, 'delta': -shock_delta_pct / 100})
+    front_loaded_end = front_loaded['corpusAfterRestive']
+
+    # Scenario B: the exact same total shortfall, spread evenly across the
+    # whole plan instead — only touches secondary-corpus returns, same as
+    # the shock above, so the comparison isolates the effect of TIMING.
+    spread_delta_pct = (shock_years * shock_delta_pct) / plan_years
+    spread_trial = copy.deepcopy(plan_data)
+    # The original JS writes this adjusted return through a DOM input's
+    # .toFixed(3) before reading it back — replicate that same rounding
+    # here, or the two engines drift apart by a tiny amount that compounds
+    # over a 100-year simulation into a real (if small) discrepancy.
+    spread_trial['activeReturn'] = round(spread_trial.get('activeReturn', 0) - spread_delta_pct, 3)
+    spread_trial['restiveReturn'] = round(spread_trial.get('restiveReturn', 0) - spread_delta_pct, 3)
+    spread = compute_plan(spread_trial)
+    spread_end = spread['corpusAfterRestive']
+
+    timing_cost = spread_end - front_loaded_end
+    year_word = 'year' if shock_years == 1 else 'years'
+
+    if abs(timing_cost) < 1:
+        message = f"In your plan, having {shock_years} bad {year_word} right at the start makes almost no difference compared to spreading the same shortfall evenly — both land at around {fmt_inr(front_loaded_end)}. That can happen when your secondary corpus contribution/withdrawal pattern is small relative to the corpus itself."
+        cls = 'msg'
+    elif timing_cost > 0:
+        message = f"Same total shortfall, very different outcome: {shock_years} bad {year_word} right at the start leaves you with {fmt_inr(front_loaded_end)} — {fmt_inr(timing_cost)} worse than if the exact same dip had been spread evenly across your whole plan ({fmt_inr(spread_end)}). This is sequence-of-returns risk: bad years early, while you're still drawing down a large balance, hurt far more than the same bad years later."
+        cls = 'neg'
+    else:
+        message = f"Interesting — in your specific plan, front-loading the bad years actually left you {fmt_inr(abs(timing_cost))} better off ({fmt_inr(front_loaded_end)}) than spreading the same shortfall evenly ({fmt_inr(spread_end)}). Sequence effects can cut both ways: this can happen when there's already a large shortfall and a depleted balance compounds more slowly at a lower rate, or when strong contributions are still flowing in during those early years, effectively \"buying in\" at a lower return before things recover. Either way, this isn't a sign your plan is wrong — just a reminder that timing effects are genuinely counter-intuitive."
+        cls = 'pos'
+
+    return {
+        'baselineEnd': baseline_end,
+        'frontLoadedEnd': front_loaded_end,
+        'spreadEnd': spread_end,
+        'message': message,
+        'cls': cls,
+    }

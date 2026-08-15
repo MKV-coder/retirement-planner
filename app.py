@@ -16,7 +16,7 @@ exposed to the internet as-is.
 """
 
 from flask import Flask, request, jsonify
-from engine import compute_plan, goal_seek, sensitivity_ranking
+from engine import compute_plan, goal_seek, sensitivity_ranking, sequence_risk_test
 
 app = Flask(__name__)
 
@@ -25,7 +25,7 @@ app = Flask(__name__)
 # your actual frontend's domain instead of '*'.
 @app.after_request
 def add_cors_headers(resp):
-resp.headers['Access-Control-Allow-Origin'] = 'https://retirementplanner-api.netlify.app'
+    resp.headers['Access-Control-Allow-Origin'] = 'https://retirementplanner-api.netlify.app'
     resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
     resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
     return resp
@@ -70,6 +70,21 @@ def sensitivity_route():
         body = request.get_json(force=True)
         plan_data = body.get('plan')
         result = sensitivity_ranking(plan_data)
+        return jsonify({'ok': True, 'result': result})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
+
+
+@app.route('/api/sequence-risk', methods=['POST', 'OPTIONS'])
+def sequence_risk_route():
+    if request.method == 'OPTIONS':
+        return '', 204
+    try:
+        body = request.get_json(force=True)
+        plan_data = body.get('plan')
+        shock_years = body.get('shockYears')
+        shock_delta_pct = body.get('shockDeltaPct')
+        result = sequence_risk_test(plan_data, shock_years, shock_delta_pct)
         return jsonify({'ok': True, 'result': result})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 400
