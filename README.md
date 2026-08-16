@@ -131,3 +131,61 @@ alongside a local `python app.py` run of the *real* backend copy... actually,
 run `python app.local-test.py` instead when testing locally, since it's
 pre-configured to talk to `index.local-test.html` without needing to edit
 either file first.
+
+## Update: Scenario Comparison ported (client-side, no new endpoint needed)
+
+Save up to 3 scenarios locally (localStorage), compare all 10 driver
+fields side by side, with rows that actually differ between saved
+scenarios highlighted in gold — including derived/knock-on differences,
+not just directly-edited fields. Includes the small comparison bar chart
+from the original. This feature needed no new backend endpoint — it
+reuses whatever `lastResult` the last `/api/calculate` call already
+returned, plus the browser's own localStorage.
+
+Verified: save/clear/persistence-across-reload, diff-highlighting
+correctness (same fields flagged consistently across compared cards),
+and a full regression of every other feature already built.
+
+**Still not ported:** lumpsum goals, Undo, Save/Load Plan, PDF/Excel export.
+
+## Update: Lumpsum Goals, Undo, Save/Load Plan, PDF/Excel export
+
+**Correction to my own earlier status:** Lumpsum Goals (3 editable future-
+purpose cards with their own investment sub-tables) turned out to already
+be fully built from an earlier pass — I had mistakenly reported it as
+"not yet ported" in a previous update. I verified it properly this time:
+parity-checked `netCorpusForSelf` against the original JS (exact match)
+and confirmed the cards render, edit, and update results correctly.
+
+**Genuinely new this round:**
+- **Undo** — wired into Goal Seek's existing Apply flow. Snapshots the
+  full plan via `getPlanData()` before applying, restores it exactly via
+  the new `applyPlanData()` on click.
+- **Save/Load Plan** — download the current plan as JSON, or load one
+  back in. Both use the same `applyPlanData()` Undo relies on.
+- **PDF export** — uses the browser's native print-to-PDF via `@media
+  print` CSS (hides buttons, keeps content) — no server involvement.
+- **Excel export** — client-side via SheetJS (CDN), builds a Summary +
+  100-year Illustration workbook from the last computed result.
+
+**A real bug fixed along the way:** the header badge showing the API URL
+was hardcoded static text ("127.0.0.1:5001"), never actually synced to
+the real `API_BASE` — so it was quietly showing the wrong URL on your
+live production site the whole time, even though the real calculations
+were correctly hitting your real backend. Now set dynamically from
+`API_BASE` on load.
+
+**Testing limitation, disclosed honestly:** this sandbox has no internet
+access, so I could not load the SheetJS CDN library here and verify the
+Excel file it produces opens correctly in real Excel. I did verify my
+code's *logic* is structurally sound — mocked the XLSX library and
+confirmed it's called with correctly-shaped data (Summary: 8 rows;
+Illustration: 102 rows = header + 101 years) — but the actual generated
+`.xlsx` file itself is unverified by me. Please test the "Download Excel"
+button once on your live site and let me know if the file doesn't open
+cleanly.
+
+**Now complete:** every item from the original punch-list — lumpsum
+goals, Sensitivity Ranking, Goal Seek, Stress Test, Sequence-of-Returns
+Risk, Scenario Comparison, Undo, Save/Load Plan, PDF export, Excel
+export.

@@ -54,6 +54,20 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
 .stub-line .val{font-family:'IBM Plex Mono',monospace; font-weight:600; white-space:nowrap;}
 .stub-line.big{padding-top:12px; margin-top:4px; border-top:1.5px solid var(--ink); border-bottom:none;}
 .stub-line.big .val{font-size:16px;}
+.scenario-diff{background:var(--gold-soft); margin:0 -8px; padding:8px; border-radius:2px; border-bottom:1px dashed var(--gold-line);}
+.scenario-diff .lbl{color:#7A5726; font-weight:600;}
+.scenario-empty{color:var(--ink-faint); font-size:12.5px; padding:20px 0; text-align:center;}
+.scenario-card{border:1px solid var(--rule); border-radius:6px; padding:14px;}
+.scenario-card input.scenario-label{width:100%; font-family:'Fraunces',serif; font-weight:600; font-size:14px; border:none; background:var(--gold-soft); padding:8px; border-radius:3px; margin-bottom:10px;}
+.scenario-btn-row{display:flex; gap:8px; margin-top:10px;}
+.scenario-btn-row button{flex:1; font-size:11px; padding:6px; border-radius:3px; border:1px solid var(--rule-strong); background:#fff; color:var(--ink-soft); cursor:pointer;}
+.scenario-btn-row button:hover{background:var(--gold-soft);}
+.purpose-card{border:1px solid var(--rule); border-radius:6px; padding:14px;}
+.purpose-card .purpose-header{display:flex; gap:12px; align-items:center; margin-bottom:8px;}
+.purpose-card input.purpose-name{flex:1; font-family:'Fraunces',serif; font-weight:600; font-size:14px; border:1px solid var(--input-border); background:var(--input-fill); padding:6px 8px; border-radius:3px;}
+.purpose-card .purpose-meta{display:flex; gap:10px;}
+.purpose-card .purpose-meta label{font-size:11px; color:var(--ink-faint); display:block; margin-bottom:2px;}
+.purpose-card .purpose-meta input{width:80px; text-align:right; border:1px solid var(--input-border); background:var(--input-fill); padding:5px 6px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; border-radius:3px;}
 .val.neg{color:var(--brick);} .val.pos{color:var(--forest);}
 
 .summary-rail{background:var(--navy); border-radius:6px; padding:0; height:fit-content; position:sticky; top:20px;}
@@ -84,7 +98,20 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
 .loading{display:none; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--gold-line); padding:8px 0;}
 .loading.active{display:block;}
 .add-row-btn{margin-top:6px; font-size:11px; background:none; border:1px dashed var(--rule-strong); color:var(--ink-soft); padding:4px 10px; border-radius:3px; cursor:pointer;}
+
+.header-actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;}
+.hbtn{background:transparent; border:1px solid #4A5A7C; color:#C8CEDC; padding:6px 12px; font-size:11.5px; border-radius:3px; cursor:pointer; font-family:'IBM Plex Mono',monospace;}
+.hbtn:hover{background:rgba(255,255,255,0.08); border-color:#C8CEDC;}
+.undo-btn{background:var(--brick); color:#fff; border:none; padding:6px 14px; font-size:11.5px; border-radius:3px; cursor:pointer; font-family:'IBM Plex Mono',monospace; margin-top:8px;}
+.undo-btn:hover{opacity:0.9;}
+
+@media print{
+  header .header-actions, .stress-btn-row, #runSensitivityBtn, #runSequenceBtn,
+  #goalSeekBtn, #goalSeekApplyBtn, .undo-btn, .scenario-btn-row { display:none !important; }
+  body{background:#fff;}
+}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -93,7 +120,14 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
     <div class="eyebrow">Retirement Corpus Ledger — Secure Edition</div>
     <h1>Two-Need, Two-Phase Post-Retirement Planner</h1>
     <div class="sub">Same planner, different architecture: every calculation runs on the server. Your browser only ever sends inputs and displays results — the formulas themselves never leave the backend.</div>
-    <div class="badge">🔒 Calculations run server-side · API: <span id="apiUrlLabel">http://127.0.0.1:5001</span></div>
+    <div class="badge">🔒 Calculations run server-side · API: <span id="apiUrlLabel"></span></div>
+    <div class="header-actions">
+      <button class="hbtn" id="btnSavePlan" type="button">💾 Save Plan</button>
+      <button class="hbtn" id="btnLoadPlan" type="button">📂 Load Plan</button>
+      <input type="file" id="loadPlanFile" accept="application/json" style="display:none;">
+      <button class="hbtn" id="btnPrint" type="button">🖨 Save as PDF</button>
+      <button class="hbtn" id="btnExcel" type="button">⬇ Download Excel</button>
+    </div>
   </div>
 </header>
 
@@ -113,7 +147,13 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
         <div class="field-row"><label>Total corpus today (₹)</label><input type="number" id="totalCorpus" value="20000000"></div>
       </div></div>
 
-      <div class="section-title"><span class="num">2</span><h2>Monthly Income Requirements</h2><div class="rule"></div></div>
+      <div class="section-title"><span class="num">2</span><h2>Future Lumpsum Requirements</h2><div class="rule"></div></div>
+      <div class="panel"><div class="panel-body">
+        <div class="panel-note">Up to 3 one-time future goals (education, weddings, gifts) — each has its own inflated target and a small dedicated investment table set aside to fund it.</div>
+        <div id="purposeCards" style="display:flex; flex-direction:column; gap:16px;"></div>
+      </div></div>
+
+      <div class="section-title"><span class="num">3</span><h2>Monthly Income Requirements</h2><div class="rule"></div></div>
       <div class="panel"><div class="panel-body">
         <div class="panel-note" style="font-weight:600; color:var(--ink);">PRIMARY NEEDS — basic minimum, non-negotiable</div>
         <div class="field-row"><label>Primary (basic minimum) needs, ₹/month</label><input type="number" id="primaryNeeds" value="60000"></div>
@@ -123,7 +163,7 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
         <div class="field-row"><label>Additional active-phase investment, ₹/month</label><input type="number" id="activeContribution" value="0"></div>
       </div></div>
 
-      <div class="section-title"><span class="num">3</span><h2>Investment Planning</h2><div class="rule"></div></div>
+      <div class="section-title"><span class="num">4</span><h2>Investment Planning</h2><div class="rule"></div></div>
       <div class="panel"><div class="panel-body">
         <div class="panel-note" style="font-weight:600; color:var(--ink);">PRIMARY NEEDS CORPUS (low-risk)</div>
         <table class="data-table" id="primaryTable">
@@ -137,7 +177,7 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
         </table>
       </div></div>
 
-      <div class="section-title"><span class="num">4</span><h2>Tax Impact (Illustrative)</h2><div class="rule"></div></div>
+      <div class="section-title"><span class="num">5</span><h2>Tax Impact (Illustrative)</h2><div class="rule"></div></div>
       <div class="panel"><div class="panel-body">
         <div class="field-row"><label>Primary withdrawal tax rate (%)</label><input type="number" id="primaryTaxRate" value="0"></div>
         <div class="field-row"><label>Secondary withdrawal tax rate (%)</label><input type="number" id="secondaryTaxRate" value="12.5"></div>
@@ -145,7 +185,7 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
         <div id="taxOutputs" style="margin-top:14px;"></div>
       </div></div>
 
-      <div class="section-title"><span class="num">5</span><h2>Illustration</h2><div class="rule"></div></div>
+      <div class="section-title"><span class="num">6</span><h2>Illustration</h2><div class="rule"></div></div>
       <div class="chart-wrap">
         <div class="legend">
           <span><i style="background:var(--gold);"></i> Primary corpus — closing amount</span>
@@ -154,7 +194,7 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
         <svg id="illusChart" viewBox="0 0 900 260" style="width:100%; height:auto; display:block;"></svg>
       </div>
 
-      <div class="section-title"><span class="num">6</span><h2>Sensitivity Ranking</h2><div class="rule"></div></div>
+      <div class="section-title"><span class="num">7</span><h2>Sensitivity Ranking</h2><div class="rule"></div></div>
       <div class="panel"><div class="panel-body">
         <div class="panel-note">Tests 6 levers in isolation against your current plan — 7 server calculations in one request — and ranks them by impact. Click any bar to explore that lever further.</div>
         <button class="stress-btn" id="runSensitivityBtn" type="button">Run Sensitivity Analysis</button>
@@ -163,7 +203,7 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
         </div>
       </div></div>
 
-      <div class="section-title"><span class="num">7</span><h2>Stress Test</h2><div class="rule"></div></div>
+      <div class="section-title"><span class="num">8</span><h2>Stress Test</h2><div class="rule"></div></div>
       <div class="panel"><div class="panel-body">
         <div class="panel-note">Each button asks the server to recompute your plan under a tougher assumption and shows the effect — proving the same what-if pattern works over the network. Your real inputs are not changed.</div>
         <div class="stress-btn-row">
@@ -174,7 +214,7 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
         <div id="stressResult" class="msg" style="display:none; margin-top:14px;"></div>
       </div></div>
 
-      <div class="section-title"><span class="num">8</span><h2>Sequence-of-Returns Risk</h2><div class="rule"></div></div>
+      <div class="section-title"><span class="num">9</span><h2>Sequence-of-Returns Risk</h2><div class="rule"></div></div>
       <div class="panel"><div class="panel-body">
         <div class="panel-note">A market downturn right when you retire is far more damaging than the same downturn spread evenly across your retirement — even with the exact same average return. This tests that, using your own numbers, entirely on the server.</div>
         <div style="display:flex; gap:20px; max-width:520px;">
@@ -188,7 +228,7 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
         <div id="sequenceResult" class="msg" style="display:none; margin-top:14px;"></div>
       </div></div>
 
-      <div class="section-title"><span class="num">9</span><h2>Goal Seek</h2><div class="rule"></div></div>
+      <div class="section-title"><span class="num">10</span><h2>Goal Seek</h2><div class="rule"></div></div>
       <div class="panel"><div class="panel-body">
         <div class="panel-note">Tell the server what ending balance you want, pick what to solve for, and the entire binary search runs server-side — one request, not forty.</div>
         <div class="field-row"><label>Target ending balance (₹)</label><input type="number" id="goalSeekTarget" value="0" step="100000"></div>
@@ -205,6 +245,14 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
         <button class="stress-btn" id="goalSeekApplyBtn" type="button" style="display:none; margin-top:10px; background:var(--teal);">Apply this value to my plan</button>
       </div></div>
 
+      <div class="section-title"><span class="num">11</span><h2>Scenario Comparison</h2><div class="rule"></div></div>
+      <div class="panel"><div class="panel-body">
+        <div class="panel-note">Adjust the inputs above, then save the current state into a slot below. Saved locally in this browser — persists until you clear it.</div>
+        <div id="scenarioDiffNote" class="panel-note" style="display:none; color:#7A5726;">Rows highlighted in gold are where your saved scenarios actually differ — that's what's driving the difference in ending balance.</div>
+        <svg id="scenarioChart" viewBox="0 0 900 180" style="width:100%; height:auto; display:block; margin-bottom:16px;"></svg>
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:14px;" id="scenarioCards"></div>
+      </div></div>
+
     </div>
 
     <div class="summary-rail">
@@ -213,6 +261,7 @@ table.data-table input{width:100%; text-align:right; border:1px solid var(--inpu
         <div class="loading" id="loadingIndicator">⟳ Calculating on server…</div>
         <div id="depletionWarning" class="msg neg" style="display:none;"></div>
         <div class="stub-line"><span class="lbl">Total corpus today</span><span class="val" id="sTotalCorpus">—</span></div>
+        <div class="stub-line"><span class="lbl">Reserved for lumpsum goals</span><span class="val" id="sTotalReserved">—</span></div>
         <div class="stub-line"><span class="lbl">Net corpus for self</span><span class="val" id="sNetCorpus">—</span></div>
         <div class="stub-line"><span class="lbl">Primary corpus invested</span><span class="val" id="sPrimaryInvested">—</span></div>
         <div class="stub-line"><span class="lbl">Secondary corpus invested</span><span class="val" id="sSecondaryInvested">—</span></div>
@@ -239,7 +288,26 @@ let secondaryTable = [
   { name: "Large cap equity fund (SOP)", amount: 3000000 },
   { name: "Flexicap equity fund (SOP)", amount: 2000000 },
 ];
-let purposes = []; // no lumpsum goals in this pass — see punch-list
+let purposes = [
+  { name: "Grandchild's education", inflation: 6, requirement: 1500000, years: 10,
+    investments: [
+      { name: "Equity fund (SIP/SOP)", ret: 12, amount: 400000 },
+      { name: "Debt fund", ret: 7, amount: 300000 },
+      { name: "Debt fund", ret: 7, amount: 0 }
+    ] },
+  { name: "Grandchild's marriage", inflation: 6, requirement: 2500000, years: 15,
+    investments: [
+      { name: "Debt fund", ret: 7, amount: 300000 },
+      { name: "Debt fund", ret: 7, amount: 200000 },
+      { name: "Debt fund", ret: 7, amount: 0 }
+    ] },
+  { name: "Gift for grandchild", inflation: 6, requirement: 500000, years: 8,
+    investments: [
+      { name: "Debt fund", ret: 7, amount: 150000 },
+      { name: "Debt fund", ret: 7, amount: 0 },
+      { name: "Debt fund", ret: 7, amount: 0 }
+    ] }
+];
 
 let lastResult = null;
 
@@ -277,6 +345,108 @@ function getPlanData(){
 }
 
 /* ============================================================
+   Load a full plan back into the UI — the shared foundation for
+   Undo, Save/Load Plan, and (implicitly) anything that needs to
+   restore a prior state exactly.
+   ============================================================ */
+function applyPlanData(data){
+  if (!data) return;
+  const setVal = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined) el.value = v; };
+  setVal('planStartDate', data.planStartDate);
+  setVal('reviewDate', data.reviewDate);
+  setVal('lifeSpanYears', data.lifeSpanYears);
+  setVal('activePhaseYears', data.activePhaseYears);
+  setVal('activeReturn', data.activeReturn);
+  setVal('restiveReturn', data.restiveReturn);
+  setVal('inflation', data.inflation);
+  setVal('totalCorpus', data.totalCorpus);
+  setVal('primaryNeeds', data.primaryNeeds);
+  setVal('nonInvestmentIncome', data.nonInvestmentIncome);
+  setVal('secondaryNeeds', data.secondaryNeeds);
+  setVal('activeContribution', data.activeContribution);
+  setVal('primaryTaxRate', data.primaryTaxRate);
+  setVal('secondaryTaxRate', data.secondaryTaxRate);
+  setVal('equityExemption', data.equityExemption);
+  if (Array.isArray(data.purposes)) purposes = data.purposes;
+  if (Array.isArray(data.primaryTable)) primaryTable = data.primaryTable;
+  if (Array.isArray(data.secondaryTable)) secondaryTable = data.secondaryTable;
+  renderPurposeCards();
+  renderTables();
+  recalcAll();
+}
+
+/* ============================================================
+   Save / Load Plan — full JSON round-trip, client-side only.
+   ============================================================ */
+function savePlanAsJSON(){
+  const data = getPlanData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `retirement-plan-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function loadPlanFromFile(file){
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      applyPlanData(data);
+    } catch(err){
+      alert('Could not read that file — is it a plan JSON saved from this tool?');
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ============================================================
+   PDF export — uses the browser's own print-to-PDF via @media print
+   CSS rules already defined in <style>. No server call needed.
+   ============================================================ */
+function exportToPDF(){
+  window.print();
+}
+
+/* ============================================================
+   Excel export — SheetJS (CDN), builds a workbook from lastResult.
+   Client-side only — nothing sent to any server for this.
+   ============================================================ */
+function exportToExcel(){
+  if (!lastResult || typeof XLSX === 'undefined'){
+    alert('Excel export needs an internet connection to load the export library (SheetJS), and at least one calculation to have completed.');
+    return;
+  }
+  const wb = XLSX.utils.book_new();
+
+  const summaryRows = [
+    ['Total corpus today', num('totalCorpus')],
+    ['Net corpus for self', lastResult.netCorpusForSelf],
+    ['Primary corpus invested', lastResult.primaryAmountTotal],
+    ['Secondary corpus invested', lastResult.secondaryInvestedTotal],
+    ['Withdrawal rate', lastResult.withdrawalRate],
+    ['Monthly shortfall / surplus', lastResult.monthlyNet],
+    ['Expected balance at plan end', lastResult.corpusAfterRestive],
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Metric','Value'], ...summaryRows]), 'Summary');
+
+  const illusHeader = ['Year','Primary ROI','Primary Opening','Primary Withdrawal','Primary Closing',
+                        'Secondary ROI','Secondary Opening','Secondary Withdrawal','Secondary Contribution','Secondary Closing'];
+  const illusRows = lastResult.illus.map(r => [
+    r.y, r.priROI, r.priOpen, r.priWithdraw, r.priClosing,
+    r.secROI, r.secOpen, r.secWithdraw, r.secContribution, r.secClosing
+  ]);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([illusHeader, ...illusRows]), 'Illustration (100yr)');
+
+  XLSX.writeFile(wb, `retirement-plan-${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+
+/* ============================================================
    THE ONLY NETWORK CALL THAT MATTERS: send inputs, get results.
    No formulas exist in this file at all.
    ============================================================ */
@@ -309,6 +479,7 @@ async function recalcAll(){
 function renderResults(r){
   document.getElementById('sTotalCorpus').textContent = fmtINR(num('totalCorpus'));
   document.getElementById('sNetCorpus').textContent = fmtINR(r.netCorpusForSelf);
+  document.getElementById('sTotalReserved').textContent = fmtINR(r.totalReserved);
   document.getElementById('sPrimaryInvested').textContent = fmtINR(r.primaryAmountTotal);
   document.getElementById('sSecondaryInvested').textContent = fmtINR(r.secondaryInvestedTotal);
   document.getElementById('sWithdrawalRate').textContent = fmtPct(r.withdrawalRate);
@@ -332,6 +503,26 @@ function renderResults(r){
     <div class="stub-line"><span class="lbl">Secondary — pre-tax / tax / post-tax</span><span class="val">${fmtINR(r.secondaryAnnualWithdrawal)} / ${fmtINR(r.secondaryTax)} / ${fmtINR(r.secondaryPostTax)}</span></div>
     <div class="stub-line big"><span class="lbl">Combined post-tax monthly</span><span class="val">${fmtINR(r.combinedPostTaxMonthly)}</span></div>
   `;
+
+  if (r.purposes){
+    document.querySelectorAll('#purposeCards .purpose-card').forEach((card, pi) => {
+      const p = r.purposes[pi];
+      if (!p) return;
+      let out = card.querySelector('.purpose-result');
+      if (!out){
+        out = document.createElement('div');
+        out.className = 'purpose-result';
+        out.style.marginTop = '10px';
+        card.appendChild(out);
+      }
+      const shortfall = p.surplus < 0;
+      out.innerHTML = `
+        <div class="stub-line"><span class="lbl">Target amount (future value)</span><span class="val">${fmtINR(p.target)}</span></div>
+        <div class="stub-line"><span class="lbl">Total investment maturity</span><span class="val">${fmtINR(p.matTotal)}</span></div>
+        <div class="stub-line"><span class="lbl">vs. target</span><span class="val ${shortfall?'neg':'pos'}">${shortfall?'Shortage ':'Surplus '}${fmtINR(p.surplus)}</span></div>
+      `;
+    });
+  }
 
   renderChart(r.illus);
 }
@@ -357,6 +548,47 @@ function renderChart(illus){
 /* ============================================================
    Editable tables
    ============================================================ */
+function renderPurposeCards(){
+  const wrap = document.getElementById('purposeCards');
+  wrap.innerHTML = purposes.map((p, pi) => `
+    <div class="purpose-card">
+      <div class="purpose-header">
+        <input class="purpose-name" data-pi="${pi}" data-f="name" value="${p.name}">
+        <div class="purpose-meta">
+          <div><label>Target (₹)</label><input data-pi="${pi}" data-f="requirement" type="number" value="${p.requirement}"></div>
+          <div><label>Inflation (%)</label><input data-pi="${pi}" data-f="inflation" type="number" step="0.1" value="${p.inflation}"></div>
+          <div><label>Years away</label><input data-pi="${pi}" data-f="years" type="number" value="${p.years}"></div>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Investment</th><th>Amount (₹)</th><th>Return (%)</th></tr></thead>
+        <tbody>
+          ${p.investments.map((inv, ii) => `
+            <tr>
+              <td><input data-pi="${pi}" data-ii="${ii}" data-f="name" value="${inv.name}"></td>
+              <td><input data-pi="${pi}" data-ii="${ii}" data-f="amount" type="number" value="${inv.amount}"></td>
+              <td><input data-pi="${pi}" data-ii="${ii}" data-f="ret" type="number" step="0.1" value="${inv.ret}"></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`).join('');
+
+  wrap.querySelectorAll('.purpose-header input').forEach(el => {
+    el.addEventListener('input', (e) => {
+      const { pi, f } = e.target.dataset;
+      purposes[pi][f] = (f === 'name') ? e.target.value : parseFloat(e.target.value) || 0;
+      debouncedRecalc();
+    });
+  });
+  wrap.querySelectorAll('.data-table input').forEach(el => {
+    el.addEventListener('input', (e) => {
+      const { pi, ii, f } = e.target.dataset;
+      purposes[pi].investments[ii][f] = (f === 'name') ? e.target.value : parseFloat(e.target.value) || 0;
+      debouncedRecalc();
+    });
+  });
+}
+
 function renderTables(){
   const pBody = document.querySelector('#primaryTable tbody');
   pBody.innerHTML = primaryTable.map((row,i) => `
@@ -581,6 +813,7 @@ function renderSequenceChart(baselineEnd, frontLoadedEnd, spreadEnd){
    the browser just sends the target and displays the answer.
    ============================================================ */
 let lastGoalSeekResult = null;
+let preApplySnapshot = null;
 
 async function runGoalSeek(){
   const target = parseFloat(document.getElementById('goalSeekTarget').value) || 0;
@@ -616,12 +849,158 @@ async function runGoalSeek(){
 
 function applyGoalSeekResult(){
   if (!lastGoalSeekResult) return;
+  preApplySnapshot = getPlanData(); // snapshot BEFORE mutating, for Undo
   const { variable, value } = lastGoalSeekResult;
   document.getElementById(variable).value = value;
   document.getElementById('goalSeekApplyBtn').style.display = 'none';
-  document.getElementById('goalSeekResult').textContent += ' ✓ Applied to your plan.';
+  const resultEl = document.getElementById('goalSeekResult');
+  resultEl.textContent += ' ✓ Applied to your plan.';
+  const existingUndo = resultEl.querySelector('.undo-btn');
+  if (existingUndo) existingUndo.remove();
+  const undoBtn = document.createElement('button');
+  undoBtn.type = 'button';
+  undoBtn.className = 'undo-btn';
+  undoBtn.textContent = '↺ Undo this change';
+  undoBtn.style.display = 'block';
+  undoBtn.addEventListener('click', undoLastApply);
+  resultEl.appendChild(undoBtn);
   lastGoalSeekResult = null;
   recalcAll();
+}
+
+function undoLastApply(){
+  if (!preApplySnapshot) return;
+  applyPlanData(preApplySnapshot);
+  preApplySnapshot = null;
+  const resultEl = document.getElementById('goalSeekResult');
+  const btn = resultEl.querySelector('.undo-btn');
+  if (btn) btn.remove();
+  resultEl.textContent += ' ✓ Reverted to your plan as it was before that change.';
+}
+
+/* ============================================================
+   Scenario Comparison — pure client-side (uses the already-computed
+   lastResult from the last /api/calculate call, plus localStorage).
+   No new server endpoint needed for this one.
+   ============================================================ */
+let scenarios = { A: null, B: null, C: null };
+
+function loadScenariosFromStorage(){
+  try {
+    const raw = localStorage.getItem('retirementPlanner.scenarios');
+    if (raw) scenarios = Object.assign({ A:null, B:null, C:null }, JSON.parse(raw));
+  } catch(e){ /* localStorage unavailable — scenarios stay session-only */ }
+}
+function persistScenarios(){
+  try { localStorage.setItem('retirementPlanner.scenarios', JSON.stringify(scenarios)); } catch(e){ /* ignore */ }
+}
+
+async function saveScenario(slot){
+  if (!lastResult) await recalcAll();
+  const labelEl = document.getElementById(`scenarioLabel-${slot}`);
+  scenarios[slot] = {
+    label: labelEl ? labelEl.value : `Scenario ${slot}`,
+    netCorpusForSelf: fmtINR(lastResult.netCorpusForSelf),
+    withdrawalRate: fmtPct(lastResult.withdrawalRate),
+    monthlyNet: fmtINR(lastResult.monthlyNet),
+    endBalance: fmtINR(lastResult.corpusAfterRestive),
+    endBalanceRaw: lastResult.corpusAfterRestive,
+    activeReturn: num('activeReturn'),
+    restiveReturn: num('restiveReturn'),
+    inflation: num('inflation'),
+    totalCorpus: num('totalCorpus'),
+    lifeSpanYears: num('lifeSpanYears'),
+    activePhaseYears: num('activePhaseYears'),
+    primaryNeeds: num('primaryNeeds'),
+    secondaryNeeds: num('secondaryNeeds'),
+    activeContribution: num('activeContribution'),
+  };
+  persistScenarios();
+  renderScenarioPanel();
+}
+
+function clearScenario(slot){
+  scenarios[slot] = null;
+  persistScenarios();
+  renderScenarioPanel();
+}
+
+const SCENARIO_ROWS = [
+  ['Total corpus',              s => fmtINR(s.totalCorpus),                              s => s.totalCorpus],
+  ['Net corpus for self',       s => s.netCorpusForSelf,                                 s => s.netCorpusForSelf],
+  ['Life span / Active phase',  s => `${s.lifeSpanYears}yr / ${s.activePhaseYears}yr`,   s => `${s.lifeSpanYears}|${s.activePhaseYears}`],
+  ['Active / Restive return',   s => `${s.activeReturn}% / ${s.restiveReturn}%`,          s => `${s.activeReturn}|${s.restiveReturn}`],
+  ['Inflation',                 s => `${s.inflation}%`,                                  s => s.inflation],
+  ['Primary monthly need',      s => fmtINR(s.primaryNeeds),                             s => s.primaryNeeds],
+  ['Secondary monthly need',    s => fmtINR(s.secondaryNeeds),                           s => s.secondaryNeeds],
+  ['Active-phase contribution', s => fmtINR(s.activeContribution) + '/mo',               s => s.activeContribution],
+  ['Withdrawal rate',           s => s.withdrawalRate,                                   s => s.withdrawalRate],
+  ['Monthly shortfall / surplus', s => s.monthlyNet,                                     s => s.monthlyNet],
+];
+
+function renderScenarioPanel(){
+  const slots = ['A','B','C'];
+  const savedSlots = slots.filter(slot => scenarios[slot]);
+
+  const differingRow = SCENARIO_ROWS.map(([label, fmt, raw]) => {
+    if (savedSlots.length < 2) return false;
+    const vals = savedSlots.map(slot => raw(scenarios[slot]));
+    return new Set(vals).size > 1;
+  });
+
+  const cardsEl = document.getElementById('scenarioCards');
+  cardsEl.innerHTML = slots.map(slot => {
+    const s = scenarios[slot];
+    const bodyHtml = !s
+      ? `<div class="scenario-empty">No scenario saved yet.</div>`
+      : SCENARIO_ROWS.map(([label, fmt], i) => {
+          const highlight = differingRow[i];
+          return `<div class="stub-line${highlight?' scenario-diff':''}"><span class="lbl">${label}</span><span class="val">${fmt(s)}</span></div>`;
+        }).join('') + `<div class="stub-line big"><span class="lbl">Balance at plan end</span><span class="val">${s.endBalance}</span></div>`;
+    return `
+      <div class="scenario-card">
+        <input class="scenario-label" id="scenarioLabel-${slot}" value="${s ? s.label : 'Scenario '+slot}">
+        ${bodyHtml}
+        <div class="scenario-btn-row">
+          <button type="button" onclick="saveScenario('${slot}')">Save current</button>
+          <button type="button" onclick="clearScenario('${slot}')">Clear</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('scenarioDiffNote').style.display = savedSlots.length >= 2 ? 'block' : 'none';
+  renderScenarioChart();
+}
+
+function renderScenarioChart(){
+  const svg = document.getElementById('scenarioChart');
+  const labels = ['A','B','C'];
+  const vals = labels.map(l => scenarios[l] ? scenarios[l].endBalanceRaw : null);
+  const validVals = vals.filter(v => v !== null);
+  if (validVals.length === 0){
+    svg.innerHTML = `<text x="450" y="90" text-anchor="middle" font-size="12" fill="#8B92A0" font-family="IBM Plex Mono, monospace">Save at least one scenario to compare.</text>`;
+    return;
+  }
+  const maxAbs = Math.max(...validVals.map(v=>Math.abs(v)), 1);
+  const W=900,H=180,padL=70,padR=20,padT=16,padB=30, plotW=W-padL-padR, plotH=H-padT-padB;
+  const zeroY = padT + plotH/2;
+  const colW = plotW/3, barW = colW*0.45;
+  let barsSvg = '';
+  labels.forEach((l,i) => {
+    const v = vals[i];
+    const x = padL + i*colW + (colW-barW)/2;
+    if (v === null){
+      barsSvg += `<text x="${(x+barW/2).toFixed(1)}" y="${zeroY.toFixed(1)}" text-anchor="middle" font-size="10" fill="#8B92A0" font-family="IBM Plex Mono, monospace">—</text>`;
+    } else {
+      const h = (Math.abs(v)/maxAbs) * (plotH/2 - 12);
+      const y = v>=0 ? zeroY-h : zeroY;
+      const color = v>=0 ? '#3C6B44' : '#A23B31';
+      barsSvg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" fill="${color}" opacity="0.85" rx="2"/>`;
+      barsSvg += `<text x="${(x+barW/2).toFixed(1)}" y="${(v>=0? y-6 : y+h+14).toFixed(1)}" text-anchor="middle" font-size="10" fill="${color}" font-family="IBM Plex Mono, monospace">${fmtINR(v)}</text>`;
+    }
+    barsSvg += `<text x="${(x+barW/2).toFixed(1)}" y="${H-10}" text-anchor="middle" font-size="11" fill="#16233D" font-family="IBM Plex Mono, monospace">${l}</text>`;
+  });
+  svg.innerHTML = `<line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W-padR}" y2="${zeroY.toFixed(1)}" stroke="#16233D" stroke-width="1"/>${barsSvg}`;
 }
 
 /* ============================================================
@@ -641,7 +1020,9 @@ function debouncedRecalc(){
 
 function init(){
   setDefaultDates();
+  document.getElementById('apiUrlLabel').textContent = API_BASE;
   renderTables();
+  renderPurposeCards();
   document.body.addEventListener('input', debouncedRecalc);
   document.getElementById('stressReturnsDown').addEventListener('click', () => runStressTest('returns_down'));
   document.getElementById('stressInflationUp').addEventListener('click', () => runStressTest('inflation_up'));
@@ -650,6 +1031,16 @@ function init(){
   document.getElementById('runSequenceBtn').addEventListener('click', runSequenceRiskTest);
   document.getElementById('goalSeekBtn').addEventListener('click', runGoalSeek);
   document.getElementById('goalSeekApplyBtn').addEventListener('click', applyGoalSeekResult);
+  document.getElementById('btnSavePlan').addEventListener('click', savePlanAsJSON);
+  document.getElementById('btnLoadPlan').addEventListener('click', () => document.getElementById('loadPlanFile').click());
+  document.getElementById('loadPlanFile').addEventListener('change', (e) => {
+    if (e.target.files[0]) loadPlanFromFile(e.target.files[0]);
+    e.target.value = '';
+  });
+  document.getElementById('btnPrint').addEventListener('click', exportToPDF);
+  document.getElementById('btnExcel').addEventListener('click', exportToExcel);
+  loadScenariosFromStorage();
+  renderScenarioPanel();
   recalcAll();
 }
 document.addEventListener('DOMContentLoaded', init);
